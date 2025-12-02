@@ -1,16 +1,17 @@
+// File: src/main/java/easy/shop/entities/UserAccount.java
 package easy.shop.entities;
-
 
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
 
 @Data
-@Table(name = "users") // avoid "user" (reserved in some DBs)
+@Table(name = "users")
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
@@ -41,7 +42,10 @@ public class UserAccount implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of();
+        if (role == null) {
+            return List.of();
+        }
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
     @Override

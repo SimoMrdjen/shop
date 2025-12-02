@@ -37,8 +37,8 @@ public class Installment extends Auditable {
     @JoinColumn(name="purchase_contract_id", referencedColumnName = "id")
     private PurchaseContract purchaseContract;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "installment_ordinal", nullable = false)
+
+//    @Column(name = "installment_ordinal", nullable = false)
     private Integer installmentOrdinal;
 
     @Column(name = "installment_amount", nullable = false)
