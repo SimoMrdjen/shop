@@ -3,8 +3,8 @@
 package easy.shop.controllers;
 
 import easy.shop.security.JwtUtil;
-import easy.shop.controllers.dto.AuthenticationRequest;
-import easy.shop.controllers.dto.AuthenticationResponse;
+import easy.shop.dtos.AuthenticationRequest;
+import easy.shop.dtos.AuthenticationResponse;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
