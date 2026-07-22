@@ -19,18 +19,18 @@ public class Customer extends Auditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // link to login data
     @OneToOne(optional = false)
     @JoinColumn(name = "user_account_id", unique = true)
     private UserAccount user;
 
     private String lastName;
     private String firstName;
+
+    @Column(unique = true)
     private String jmbg;
     private String address;
     private String idCardNumber;      // brLK
     private String issuingAuthority;  // pu
-    private String email;
     private String phoneNumber;
 
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)

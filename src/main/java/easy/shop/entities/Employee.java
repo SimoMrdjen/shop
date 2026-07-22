@@ -11,7 +11,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Employee {
+public class Employee extends Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,6 +23,5 @@ public class Employee {
     private UserAccount user;
     private String firstName;
     private String lastName;
-    private String email;
     private String phoneNumber;
 }

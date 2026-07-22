@@ -110,7 +110,64 @@
 					<groupId>org.springframework.boot</groupId>
 					<artifactId>spring-boot-starter-mail</artifactId>
 				</dependency>
-		    </dependencies>
+                <dependency>
+                    <groupId>org.jetbrains</groupId>
+                    <artifactId>annotations</artifactId>
+                    <version>RELEASE</version>
+                    <scope>compile</scope>
+                </dependency>
+
+                <!-- JNA: poziv CelikApi.dll (citac elektronske licne karte) iz Jave -->
+                <dependency>
+                    <groupId>net.java.dev.jna</groupId>
+                    <artifactId>jna</artifactId>
+                    <version>5.14.0</version>
+                </dependency>
+            </dependencies>
+
+		    <profiles>
+		        <profile>
+		            <!-- mvn clean package -Pbundle-frontend -->
+		            <!-- Builduje Angular frontend (ng build) i ubacuje ga u target/classes/static, -->
+		            <!-- tako da finalni .jar sadrzi i backend i frontend (pokrece se sa "java -jar"). -->
+		            <id>bundle-frontend</id>
+		            <build>
+		                <plugins>
+		                    <plugin>
+		                        <groupId>org.apache.maven.plugins</groupId>
+		                        <artifactId>maven-antrun-plugin</artifactId>
+		                        <version>3.1.0</version>
+		                        <executions>
+		                            <execution>
+		                                <id>build-frontend</id>
+		                                <phase>generate-resources</phase>
+		                                <goals>
+		                                    <goal>run</goal>
+		                                </goals>
+		                                <configuration>
+		                                    <target>
+		                                        <exec executable="cmd" dir="${project.basedir}/../EasyShop-frontend" failonerror="true">
+		                                            <arg value="/c"/>
+		                                            <arg value="npm run build"/>
+		                                        </exec>
+		                                        <delete dir="${project.build.outputDirectory}/static" quiet="true"/>
+		                                        <copy todir="${project.build.outputDirectory}/static">
+		                                            <fileset dir="${project.basedir}/../EasyShop-frontend/dist/easy-shop-frontend/browser"/>
+		                                        </copy>
+		                                        <!-- Angular SSR build generise index.csr.html umesto index.html; -->
+		                                        <!-- Spring Boot servira index.html po defaultu na "/". -->
+		                                        <copy file="${project.build.outputDirectory}/static/index.csr.html"
+		                                              tofile="${project.build.outputDirectory}/static/index.html"
+		                                              overwrite="true"/>
+		                                    </target>
+		                                </configuration>
+		                            </execution>
+		                        </executions>
+		                    </plugin>
+		                </plugins>
+		            </build>
+		        </profile>
+		    </profiles>
 
 		    <build>
 		        <plugins>

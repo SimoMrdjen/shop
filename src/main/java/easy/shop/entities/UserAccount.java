@@ -10,9 +10,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 
-@Data
+
 @Table(name = "users")
 @Entity
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -22,7 +24,7 @@ public class UserAccount implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // credentials
+    // credentials actually email
     @Column(nullable = false, unique = true)
     private String username;
 

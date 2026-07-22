@@ -2,45 +2,35 @@
 // File: `src/main/java/easy/shop/controllers/AuthController.java`
 package easy.shop.controllers;
 
-import easy.shop.security.JwtUtil;
 import easy.shop.dtos.AuthenticationRequest;
 import easy.shop.dtos.AuthenticationResponse;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import easy.shop.services.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthenticationManager authenticationManager;
-    private final JwtUtil jwtUtil;
-    private final UserDetailsService userDetailsService;
+    private final AuthService authService;
 
-    public AuthController(AuthenticationManager authenticationManager,
-                          JwtUtil jwtUtil,
-                          UserDetailsService userDetailsService) {
-        this.authenticationManager = authenticationManager;
-        this.jwtUtil = jwtUtil;
-        this.userDetailsService = userDetailsService;
+    public AuthController(AuthService authService) {
+        this.authService = authService;
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AuthenticationRequest request) {
+    @PostMapping({"/login", "/loging"})
+    public ResponseEntity<?> login(@Valid @RequestBody AuthenticationRequest request) {
         try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.username(), request.password())
-            );
+            AuthenticationResponse response = authService.login(request);
+            return ResponseEntity.ok(response);
         } catch (AuthenticationException ex) {
-            return ResponseEntity.status(401).body("Invalid credentials");
+            return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials"));
         }
-
-        UserDetails userDetails = userDetailsService.loadUserByUsername(request.username());
-        String token = jwtUtil.generateToken(userDetails);
-        return ResponseEntity.ok(new AuthenticationResponse(token));
     }
 }

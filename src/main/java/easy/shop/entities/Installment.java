@@ -57,6 +57,10 @@ public class Installment extends Auditable {
     @Column(name = "payment_method")
     private PaymentMethod paymentMethod;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private InstallmentStatus status = InstallmentStatus.PENDING;
+
     public Installment(PurchaseContract purchaseContract,
                        Integer installmentOrdinal,
                        Double installmentAmount,

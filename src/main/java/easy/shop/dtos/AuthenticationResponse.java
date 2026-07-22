@@ -1,4 +1,12 @@
-// File: src/main/java/easy/shop/controllers/dto/AuthenticationResponse.java
 package easy.shop.dtos;
 
-public record AuthenticationResponse(String token) {}
+import java.util.List;
+
+public record AuthenticationResponse(
+        String accessToken,
+        String tokenType,
+        String username,
+        List<String> roles,
+        String firstName,
+        String lastName
+) {}

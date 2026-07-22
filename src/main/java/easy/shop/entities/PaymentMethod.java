@@ -7,5 +7,6 @@ public enum PaymentMethod {
     BANK_PAYMENT,
     GOTOVINA,
     UPLATA_TR,
-    KARTICA
+    KARTICA,
+    DRUGO
 }

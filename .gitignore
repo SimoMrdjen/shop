@@ -31,3 +31,13 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Sadrzi prave lozinke (baza, JWT secret, email) - koristi application.properties.example kao sablon ###
+src/main/resources/application.properties
+
+### jpackage build izlaz ###
+dist-app/
+jpackage-input/
+
+### Claude Code lokalna konfiguracija ###
+.claude/
