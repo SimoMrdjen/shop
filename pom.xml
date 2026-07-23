@@ -123,6 +123,13 @@
                     <artifactId>jna</artifactId>
                     <version>5.14.0</version>
                 </dependency>
+
+                <!-- PDFBox: izvlacenje teksta iz PDF bankovnih izvoda -->
+                <dependency>
+                    <groupId>org.apache.pdfbox</groupId>
+                    <artifactId>pdfbox</artifactId>
+                    <version>3.0.3</version>
+                </dependency>
             </dependencies>
 
 		    <profiles>

@@ -5,6 +5,8 @@
 spring.application.name=shop
 server.port=8080
 spring.mvc.pathmatch.matching-strategy=ant_path_matcher
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
 app.cors.allowed-origins=http://localhost:4200,http://127.0.0.1:4200
 
 # Admin nalog koji se kreira pri prvom pokretanju
