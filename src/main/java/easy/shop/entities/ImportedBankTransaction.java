@@ -32,6 +32,7 @@ public class ImportedBankTransaction extends Auditable {
     @Column(nullable = false)
     private Double amount;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @Column(name = "poziv_na_broj_raw")
