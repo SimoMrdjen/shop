@@ -18,4 +18,5 @@ public class BankImportRowResponse {
     private Long contractId;
     private Integer installmentOrdinal;
     private String customerFullName;
+    private String payerNameCheck;
 }

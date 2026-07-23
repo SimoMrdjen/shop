@@ -113,6 +113,11 @@ public class BankStatementService {
 
     private BankImportRowResponse toResponse(ImportedBankTransaction tx) {
         Installment installment = tx.getMatchedInstallment();
+        String customerFullName = installment != null
+                ? installment.getPurchaseContract().getCustomer().getFirstName() + " "
+                + installment.getPurchaseContract().getCustomer().getLastName()
+                : null;
+
         return BankImportRowResponse.builder()
                 .id(tx.getId())
                 .bankName(tx.getBankName())
@@ -122,9 +127,9 @@ public class BankStatementService {
                 .status(tx.getStatus())
                 .contractId(installment != null ? installment.getPurchaseContract().getId() : null)
                 .installmentOrdinal(installment != null ? installment.getInstallmentOrdinal() : null)
-                .customerFullName(installment != null
-                        ? installment.getPurchaseContract().getCustomer().getFirstName() + " "
-                        + installment.getPurchaseContract().getCustomer().getLastName()
+                .customerFullName(customerFullName)
+                .payerNameCheck(customerFullName != null
+                        ? PayerNameMatcher.check(tx.getDescription(), customerFullName).name()
                         : null)
                 .build();
     }
