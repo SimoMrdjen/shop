@@ -55,7 +55,7 @@ public class SecurityConfig {
                     .requestMatchers( "/api/account/forgot-password").permitAll()
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
                     .requestMatchers("/api/employee/**").hasAnyRole("EMPLOYEE", "ADMIN")
-                    .requestMatchers("/api/contracts/**", "/api/installments/**", "/api/id-card/**", "/api/bank-statements/**").hasAnyRole("EMPLOYEE", "ADMIN")
+                    .requestMatchers("/api/contracts/**", "/api/installments/**", "/api/id-card/**", "/api/bank-statements/**", "/api/system/**").hasAnyRole("EMPLOYEE", "ADMIN")
                     .requestMatchers("/api/**").authenticated()
                     // Frontend (Angular) static fajlovi i SPA rute - stvarna zastita je na /api/** iznad
                     .requestMatchers(HttpMethod.GET, "/**").permitAll()
