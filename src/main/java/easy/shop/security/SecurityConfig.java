@@ -53,6 +53,8 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers( "/api/account/forgot-password").permitAll()
+                    // Heartbeat mora da radi i pre prijave (npr. dok je otvoren login ekran)
+                    .requestMatchers("/api/system/heartbeat").permitAll()
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")
                     .requestMatchers("/api/employee/**").hasAnyRole("EMPLOYEE", "ADMIN")
                     .requestMatchers("/api/contracts/**", "/api/installments/**", "/api/id-card/**", "/api/bank-statements/**", "/api/system/**").hasAnyRole("EMPLOYEE", "ADMIN")

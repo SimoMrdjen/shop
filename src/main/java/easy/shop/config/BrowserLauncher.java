@@ -62,6 +62,11 @@ public class BrowserLauncher {
                     Process process = new ProcessBuilder(
                             path,
                             "--user-data-dir=" + profileDir,
+                            // Bez ovoga Chrome moze da ostane "ziv" u pozadini i posle zatvaranja
+                            // svih prozora (opcija "Continue running background apps") - sto bi
+                            // sprecilo nas watcher ispod da ikad primeti da je prozor zatvoren.
+                            "--disable-background-mode",
+                            "--disable-background-networking",
                             "--app=" + url
                     ).start();
 
