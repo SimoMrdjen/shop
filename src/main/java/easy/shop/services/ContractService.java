@@ -5,6 +5,8 @@ import easy.shop.dtos.ContractResponse;
 import easy.shop.dtos.DailyPaymentReportResponse;
 import easy.shop.dtos.InstallmentResponse;
 import easy.shop.dtos.PayInstallmentRequest;
+import easy.shop.dtos.PaymentBreakdownEntryResponse;
+import easy.shop.dtos.PaymentBreakdownResponse;
 import easy.shop.dtos.PaymentEntryResponse;
 import easy.shop.entities.*;
 import easy.shop.exceptions.BadRequestException;
@@ -19,9 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -79,7 +83,26 @@ public class ContractService {
     public ContractResponse getById(Long id) {
         PurchaseContract contract = contractRepository.findByIdWithInstallments(id)
                 .orElseThrow(() -> new BadRequestException("Ugovor nije pronađen: " + id));
-        return toResponse(contract, contract.getInstallments());
+        Map<Long, String> latestGroupByInstallment = loadLatestPaymentGroupIds(contract.getInstallments());
+        return toResponse(contract, contract.getInstallments(), latestGroupByInstallment);
+    }
+
+    /** Za svaku ratu nalazi ID grupe njene POSLEDNJE (po vremenu) uplate. */
+    private Map<Long, String> loadLatestPaymentGroupIds(List<Installment> installments) {
+        List<Long> ids = installments.stream().map(Installment::getId).toList();
+        if (ids.isEmpty()) return Map.of();
+
+        Map<Long, String> latestGroupId = new HashMap<>();
+        Map<Long, java.time.LocalDateTime> latestTime = new HashMap<>();
+        for (Payment p : paymentRepository.findByInstallmentIdIn(ids)) {
+            Long instId = p.getInstallment().getId();
+            java.time.LocalDateTime createdAt = p.getCreatedAt();
+            if (createdAt != null && (!latestTime.containsKey(instId) || createdAt.isAfter(latestTime.get(instId)))) {
+                latestTime.put(instId, createdAt);
+                latestGroupId.put(instId, p.getPaymentGroupId());
+            }
+        }
+        return latestGroupId;
     }
 
     @Transactional(readOnly = true)
@@ -98,70 +121,65 @@ public class ContractService {
             throw new BadRequestException("Rata je već plaćena");
         }
 
-        double alreadyPaid = installment.getPaidAmount() != null ? installment.getPaidAmount() : 0.0;
-        double totalPaid = Math.round((alreadyPaid + req.getPaidAmount()) * 100.0) / 100.0;
-        double excess = Math.round((totalPaid - installment.getInstallmentAmount()) * 100.0) / 100.0;
-
-        installment.setPaymentDate(req.getPaymentDate());
-        installment.setPaymentMethod(req.getPaymentMethod());
-
-        if (excess >= 0) {
-            installment.setPaidAmount(installment.getInstallmentAmount());
-            installment.setStatus(InstallmentStatus.PAID);
-            installmentRepository.save(installment);
-            if (excess > 0) {
-                applyExcess(installment, excess, req.getPaymentDate(), req.getPaymentMethod());
-            }
-        } else {
-            installment.setPaidAmount(totalPaid);
-            installment.setStatus(InstallmentStatus.PARTIAL);
-            installmentRepository.save(installment);
-        }
-
-        paymentRepository.save(Payment.builder()
-                .installment(installment)
-                .amount(req.getPaidAmount())
-                .paymentDate(req.getPaymentDate())
-                .paymentMethod(req.getPaymentMethod())
-                .build());
+        String paymentGroupId = UUID.randomUUID().toString();
+        applyPayment(installment, req.getPaidAmount(), req.getPaymentDate(), req.getPaymentMethod(), paymentGroupId);
 
         return toInstallmentResponse(installment);
     }
 
-    private void applyExcess(Installment current, double excess, LocalDate paymentDate, PaymentMethod paymentMethod) {
-        Long contractId = current.getPurchaseContract().getId();
-        int nextOrdinal = current.getInstallmentOrdinal() + 1;
-
-        Optional<Installment> nextOpt = installmentRepository
-                .findByPurchaseContractIdAndInstallmentOrdinal(contractId, nextOrdinal);
-
-        if (nextOpt.isEmpty()) return;
-
-        Installment next = nextOpt.get();
-
-        if (next.getStatus() == InstallmentStatus.PAID) {
-            applyExcess(next, excess, paymentDate, paymentMethod);
+    /**
+     * Primenjuje iznos uplate na ratu; ako iznos premašuje dugovanje na ovoj rati,
+     * višak se rekurzivno prenosi na narednu ratu (ili dalje, ako je i ona već
+     * plaćena). Za svaku ratu na koju je stvarno primenjen deo ove uplate čuva se
+     * poseban Payment zapis (sa istim paymentGroupId za sve rate iz ISTE uplate),
+     * uz tačno dugovanje pre uplate - da bi priznanica kasnije mogla verno da
+     * prikaže raspodelu, nezavisno od eventualnih kasnijih uplata.
+     */
+    private void applyPayment(Installment installment, double amountToApply, LocalDate paymentDate,
+                               PaymentMethod paymentMethod, String paymentGroupId) {
+        if (installment.getStatus() == InstallmentStatus.PAID) {
+            // Rata je vec u potpunosti placena (npr. uplacena van reda) - visak ide dalje.
+            if (amountToApply > 0) {
+                installmentRepository.findByPurchaseContractIdAndInstallmentOrdinal(
+                        installment.getPurchaseContract().getId(), installment.getInstallmentOrdinal() + 1
+                ).ifPresent(next -> applyPayment(next, amountToApply, paymentDate, paymentMethod, paymentGroupId));
+            }
             return;
         }
 
-        double alreadyPaid = next.getPaidAmount() != null ? next.getPaidAmount() : 0.0;
-        double total = Math.round((alreadyPaid + excess) * 100.0) / 100.0;
-        double newExcess = Math.round((total - next.getInstallmentAmount()) * 100.0) / 100.0;
+        double alreadyPaid = installment.getPaidAmount() != null ? installment.getPaidAmount() : 0.0;
+        double remainingBefore = Math.round((installment.getInstallmentAmount() - alreadyPaid) * 100.0) / 100.0;
+        double totalPaid = Math.round((alreadyPaid + amountToApply) * 100.0) / 100.0;
+        double excess = Math.round((totalPaid - installment.getInstallmentAmount()) * 100.0) / 100.0;
+        double appliedToThis = excess >= 0 ? remainingBefore : amountToApply;
 
-        next.setPaymentDate(paymentDate);
-        next.setPaymentMethod(paymentMethod);
+        installment.setPaymentDate(paymentDate);
+        installment.setPaymentMethod(paymentMethod);
 
-        if (newExcess >= 0) {
-            next.setPaidAmount(next.getInstallmentAmount());
-            next.setStatus(InstallmentStatus.PAID);
-            installmentRepository.save(next);
-            if (newExcess > 0) {
-                applyExcess(next, newExcess, paymentDate, paymentMethod);
-            }
+        if (excess >= 0) {
+            installment.setPaidAmount(installment.getInstallmentAmount());
+            installment.setStatus(InstallmentStatus.PAID);
         } else {
-            next.setPaidAmount(total);
-            next.setStatus(InstallmentStatus.PARTIAL);
-            installmentRepository.save(next);
+            installment.setPaidAmount(totalPaid);
+            installment.setStatus(InstallmentStatus.PARTIAL);
+        }
+        installmentRepository.save(installment);
+
+        if (appliedToThis > 0) {
+            paymentRepository.save(Payment.builder()
+                    .installment(installment)
+                    .amount(appliedToThis)
+                    .paymentDate(paymentDate)
+                    .paymentMethod(paymentMethod)
+                    .paymentGroupId(paymentGroupId)
+                    .remainingBeforePayment(remainingBefore)
+                    .build());
+        }
+
+        if (excess > 0) {
+            installmentRepository.findByPurchaseContractIdAndInstallmentOrdinal(
+                    installment.getPurchaseContract().getId(), installment.getInstallmentOrdinal() + 1
+            ).ifPresent(next -> applyPayment(next, excess, paymentDate, paymentMethod, paymentGroupId));
         }
     }
 
@@ -218,9 +236,48 @@ public class ContractService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public PaymentBreakdownResponse getPaymentBreakdown(String groupId) {
+        List<Payment> payments = paymentRepository.findByPaymentGroupId(groupId);
+        if (payments.isEmpty()) {
+            throw new BadRequestException("Uplata nije pronađena: " + groupId);
+        }
+
+        List<PaymentBreakdownEntryResponse> entries = payments.stream().map(p -> {
+            Installment inst = p.getInstallment();
+            double remainingBefore = p.getRemainingBeforePayment() != null ? p.getRemainingBeforePayment() : p.getAmount();
+            double amountApplied = p.getAmount();
+            double remainingAfter = Math.round((remainingBefore - amountApplied) * 100.0) / 100.0;
+
+            return PaymentBreakdownEntryResponse.builder()
+                    .installmentId(inst.getId())
+                    .installmentOrdinal(inst.getInstallmentOrdinal())
+                    .installmentAmount(inst.getInstallmentAmount())
+                    .remainingBefore(remainingBefore)
+                    .amountApplied(amountApplied)
+                    .remainingAfter(Math.max(0, remainingAfter))
+                    .build();
+        }).toList();
+
+        double totalPaid = Math.round(entries.stream().mapToDouble(PaymentBreakdownEntryResponse::getAmountApplied).sum() * 100.0) / 100.0;
+        Payment first = payments.get(0);
+
+        return PaymentBreakdownResponse.builder()
+                .contractId(first.getInstallment().getPurchaseContract().getId())
+                .paymentDate(first.getPaymentDate())
+                .paymentMethod(first.getPaymentMethod())
+                .totalPaid(totalPaid)
+                .entries(entries)
+                .build();
+    }
+
     // --- mappers ---
 
     private ContractResponse toResponse(PurchaseContract c, List<Installment> installments) {
+        return toResponse(c, installments, Map.of());
+    }
+
+    private ContractResponse toResponse(PurchaseContract c, List<Installment> installments, Map<Long, String> lastGroupIdByInstallment) {
         double financeAmount = c.getContractAmount() - c.getParticipation();
         double installmentAmount = c.getNumberOfInstallments() > 0
                 ? Math.round((financeAmount / c.getNumberOfInstallments()) * 100.0) / 100.0
@@ -236,11 +293,17 @@ public class ContractService {
                 .contractDate(c.getContractDate())
                 .numberOfInstallments(c.getNumberOfInstallments())
                 .installmentAmount(installmentAmount)
-                .installments(installments.stream().map(this::toInstallmentResponse).toList())
+                .installments(installments.stream()
+                        .map(i -> toInstallmentResponse(i, lastGroupIdByInstallment.get(i.getId())))
+                        .toList())
                 .build();
     }
 
     private InstallmentResponse toInstallmentResponse(Installment i) {
+        return toInstallmentResponse(i, null);
+    }
+
+    private InstallmentResponse toInstallmentResponse(Installment i, String lastPaymentGroupId) {
         return InstallmentResponse.builder()
                 .id(i.getId())
                 .contractId(i.getPurchaseContract().getId())
@@ -251,6 +314,7 @@ public class ContractService {
                 .paidAmount(i.getPaidAmount())
                 .paymentDate(i.getPaymentDate())
                 .paymentMethod(i.getPaymentMethod())
+                .lastPaymentGroupId(lastPaymentGroupId)
                 .build();
     }
 }

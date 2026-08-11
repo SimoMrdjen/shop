@@ -31,4 +31,21 @@ public class Payment extends Auditable {
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false)
     private PaymentMethod paymentMethod;
+
+    /**
+     * Povezuje sve Payment zapise nastale IZ ISTE korisnikove uplate (npr. kad
+     * visak sa jedne rate automatski prekrije i deo naredne) - koristi se da bi
+     * priznanica mogla tačno da prikaže raspodelu jedne transakcije po ratama.
+     * Null za stare zapise nastale pre uvođenja ovog polja.
+     */
+    @Column(name = "payment_group_id")
+    private String paymentGroupId;
+
+    /**
+     * Koliko je iznosilo dugovanje na OVOJ rati neposredno pre ove uplate
+     * (installmentAmount - tada_već_uplaćeno). Čuva se eksplicitno da bi
+     * raspodela ostala tačna i istorijski, bez obzira na kasnije uplate.
+     */
+    @Column(name = "remaining_before_payment")
+    private Double remainingBeforePayment;
 }

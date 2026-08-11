@@ -16,4 +16,11 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             "WHERE p.paymentDate = :date " +
             "ORDER BY p.createdAt ASC")
     List<Payment> findByPaymentDate(LocalDate date);
+
+    @Query("SELECT p FROM Payment p JOIN FETCH p.installment WHERE p.installment.id IN :installmentIds")
+    List<Payment> findByInstallmentIdIn(List<Long> installmentIds);
+
+    @Query("SELECT p FROM Payment p JOIN FETCH p.installment i " +
+            "WHERE p.paymentGroupId = :groupId ORDER BY i.installmentOrdinal ASC")
+    List<Payment> findByPaymentGroupId(String groupId);
 }

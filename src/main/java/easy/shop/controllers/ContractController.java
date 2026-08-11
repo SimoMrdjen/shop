@@ -5,6 +5,7 @@ import easy.shop.dtos.ContractResponse;
 import easy.shop.dtos.DailyPaymentReportResponse;
 import easy.shop.dtos.InstallmentResponse;
 import easy.shop.dtos.PayInstallmentRequest;
+import easy.shop.dtos.PaymentBreakdownResponse;
 import easy.shop.services.ContractService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +61,11 @@ public class ContractController {
     @GetMapping("/api/installments/customer/{customerId}/unpaid")
     public List<InstallmentResponse> unpaidByCustomer(@PathVariable Long customerId) {
         return contractService.getUnpaidByCustomer(customerId);
+    }
+
+    @GetMapping("/api/installments/payment-groups/{groupId}")
+    public PaymentBreakdownResponse paymentBreakdown(@PathVariable String groupId) {
+        return contractService.getPaymentBreakdown(groupId);
     }
 
     // --- Izveštaji ---

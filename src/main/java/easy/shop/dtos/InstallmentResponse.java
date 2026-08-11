@@ -21,4 +21,7 @@ public class InstallmentResponse {
     private Double paidAmount;
     private LocalDate paymentDate;
     private PaymentMethod paymentMethod;
+
+    /** ID grupe poslednje uplate na ovu ratu - koristi se za tačnu raspodelu na priznanici. */
+    private String lastPaymentGroupId;
 }
