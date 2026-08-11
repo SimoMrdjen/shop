@@ -1,8 +1,7 @@
 package easy.shop.controllers;
 
+import easy.shop.config.AppLifecycleService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.SpringApplication;
-import org.springframework.context.ApplicationContext;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SystemController {
 
-    private final ApplicationContext context;
+    private final AppLifecycleService lifecycleService;
 
     /**
      * Potpuno gasi backend server (ne samo browser prozor). Koristi se iz
@@ -25,8 +24,7 @@ public class SystemController {
                 Thread.sleep(500); // ostavi vremena da HTTP odgovor stigne do klijenta
             } catch (InterruptedException ignored) {
             }
-            int exitCode = SpringApplication.exit(context, () -> 0);
-            System.exit(exitCode);
+            lifecycleService.shutdown();
         }).start();
 
         return ResponseEntity.ok().build();
