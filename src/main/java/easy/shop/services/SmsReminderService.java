@@ -1,22 +1,28 @@
 package easy.shop.services;
 
+import easy.shop.dtos.ExcludedCustomerResponse;
 import easy.shop.dtos.SmsReminderLogResponse;
 import easy.shop.dtos.SmsReminderRuleRequest;
 import easy.shop.dtos.SmsReminderRuleResponse;
+import easy.shop.dtos.SmsReminderSettingsResponse;
 import easy.shop.entities.Customer;
 import easy.shop.entities.Installment;
 import easy.shop.entities.PurchaseContract;
 import easy.shop.entities.SmsReminderLog;
 import easy.shop.entities.SmsReminderRule;
+import easy.shop.entities.SmsReminderSettings;
 import easy.shop.entities.SmsReminderStatus;
 import easy.shop.exceptions.BadRequestException;
+import easy.shop.repositories.CustomerRepository;
 import easy.shop.repositories.InstallmentRepository;
 import easy.shop.repositories.SmsReminderLogRepository;
 import easy.shop.repositories.SmsReminderRuleRepository;
+import easy.shop.repositories.SmsReminderSettingsRepository;
 import easy.shop.sms.SmsSendResult;
 import easy.shop.sms.SmsSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,10 +39,21 @@ public class SmsReminderService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy.");
 
+    private static final Long SETTINGS_ID = 1L;
+
     private final SmsReminderRuleRepository ruleRepository;
     private final SmsReminderLogRepository logRepository;
     private final InstallmentRepository installmentRepository;
+    private final SmsReminderSettingsRepository settingsRepository;
+    private final CustomerRepository customerRepository;
     private final SmsSender smsSender;
+
+    @Value("${sms.infobip.enabled:false}")
+    private boolean providerConnected;
+
+    public boolean isProviderConnected() {
+        return providerConnected;
+    }
 
     // --- Pravila (admin CRUD) ---
 
@@ -76,6 +93,64 @@ public class SmsReminderService {
         return logRepository.findTop200ByOrderBySentAtDesc().stream().map(this::toLogResponse).toList();
     }
 
+    /**
+     * Šalje probnu poruku direktno na zadati broj, bez ikakve veze sa
+     * pravilima/ratama - služi samo da se proveri da li je konekcija ka
+     * SMS provajderu ispravna, pre nego što se pravila aktiviraju na
+     * stvarnim kupcima.
+     */
+    public SmsSendResult sendTestMessage(String phoneNumber, String message) {
+        return smsSender.send(normalizePhoneNumber(phoneNumber), message);
+    }
+
+    // --- Globalni prekidač ---
+
+    public SmsReminderSettingsResponse getSettings() {
+        return SmsReminderSettingsResponse.builder().sendingEnabled(getOrCreateSettings().isSendingEnabled()).build();
+    }
+
+    @Transactional
+    public SmsReminderSettingsResponse updateSettings(boolean sendingEnabled) {
+        SmsReminderSettings settings = getOrCreateSettings();
+        settings.setSendingEnabled(sendingEnabled);
+        settingsRepository.save(settings);
+        return SmsReminderSettingsResponse.builder().sendingEnabled(sendingEnabled).build();
+    }
+
+    private SmsReminderSettings getOrCreateSettings() {
+        return settingsRepository.findById(SETTINGS_ID)
+                .orElseGet(() -> settingsRepository.save(
+                        SmsReminderSettings.builder().id(SETTINGS_ID).sendingEnabled(true).build()));
+    }
+
+    // --- Isključeni kupci ---
+
+    public List<ExcludedCustomerResponse> getExcludedCustomers() {
+        return customerRepository.findBySmsRemindersEnabledFalse().stream()
+                .map(c -> ExcludedCustomerResponse.builder()
+                        .customerId(c.getId())
+                        .fullName((nullToEmpty(c.getFirstName()) + " " + nullToEmpty(c.getLastName())).trim())
+                        .phoneNumber(c.getPhoneNumber())
+                        .build())
+                .toList();
+    }
+
+    @Transactional
+    public void excludeCustomer(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new BadRequestException("Kupac nije pronađen: " + customerId));
+        customer.setSmsRemindersEnabled(false);
+        customerRepository.save(customer);
+    }
+
+    @Transactional
+    public void includeCustomer(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new BadRequestException("Kupac nije pronađen: " + customerId));
+        customer.setSmsRemindersEnabled(true);
+        customerRepository.save(customer);
+    }
+
     // --- Slanje ---
 
     @Scheduled(cron = "0 0 9 * * *")
@@ -85,6 +160,10 @@ public class SmsReminderService {
 
     @Transactional
     public void processRules(LocalDate today) {
+        if (!getOrCreateSettings().isSendingEnabled()) {
+            log.info("SMS podsetnici su globalno isključeni - preskačem proveru");
+            return;
+        }
         List<SmsReminderRule> activeRules = ruleRepository.findByActiveTrue();
         for (SmsReminderRule rule : activeRules) {
             LocalDate targetMaturityDate = today.minusDays(rule.getDaysOffset());
@@ -112,9 +191,17 @@ public class SmsReminderService {
                 .message(message)
                 .sentAt(LocalDateTime.now());
 
+        if (!customer.isSmsRemindersEnabled()) {
+            logRepository.save(logBuilder
+                    .status(SmsReminderStatus.SKIPPED)
+                    .errorMessage("Kupac je isključen iz SMS podsetnika")
+                    .build());
+            return;
+        }
+
         if (phoneNumber == null || phoneNumber.isBlank()) {
             logRepository.save(logBuilder
-                    .status(SmsReminderStatus.FAILED)
+                    .status(SmsReminderStatus.SKIPPED)
                     .errorMessage("Kupac nema unet broj telefona")
                     .build());
             return;

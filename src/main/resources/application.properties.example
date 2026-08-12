@@ -19,6 +19,14 @@ application.security.jwt.secret-key=CHANGE_ME
 
 jwt.expiration-ms=86400000
 
+# SMS (Infobip) - za SMS podsetnike o dospecu rata
+# sms.infobip.enabled=false gasi slanje i vraca se na simulaciju (log)
+sms.infobip.enabled=false
+sms.infobip.base-url=CHANGE_ME
+sms.infobip.api-key=CHANGE_ME
+# Prazno = koristi Infobip podrazumevani posiljalac; upisati odobreni sender ID kad se dobije
+sms.infobip.sender=
+
 # SMTP (za slanje email-a - reset lozinke i sl.)
 spring.mail.host=CHANGE_ME
 spring.mail.port=587

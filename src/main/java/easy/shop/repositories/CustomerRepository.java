@@ -19,4 +19,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     boolean existsByJmbg(String jmbg);
 
     Optional<Customer> findByJmbg(String jmbg);
+
+    @Query("SELECT c FROM Customer c JOIN FETCH c.user WHERE c.smsRemindersEnabled = false")
+    List<Customer> findBySmsRemindersEnabledFalse();
 }

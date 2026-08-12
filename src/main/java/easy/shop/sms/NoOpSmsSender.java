@@ -1,16 +1,16 @@
 package easy.shop.sms;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Privremena implementacija dok se ne poveže pravi SMS provajder (npr.
- * Infobip) - poruku samo zapisuje u log, ne šalje ništa stvarno. Zamena
- * ovom klasom drugom implementacijom {@link SmsSender} je jedina izmena
- * potrebna da slanje postane pravo.
+ * Aktivna dok "sms.infobip.enabled" nije true - poruku samo zapisuje u log,
+ * ne šalje ništa stvarno. Videti {@link InfobipSmsSender} za pravo slanje.
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "sms.infobip.enabled", havingValue = "false", matchIfMissing = true)
 public class NoOpSmsSender implements SmsSender {
 
     @Override

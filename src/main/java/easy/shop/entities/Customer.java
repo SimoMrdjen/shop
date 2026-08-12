@@ -33,6 +33,10 @@ public class Customer extends Auditable {
     private String issuingAuthority;  // pu
     private String phoneNumber;
 
+    @Column(name = "sms_reminders_enabled", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    @Builder.Default
+    private boolean smsRemindersEnabled = true;
+
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<PurchaseContract> purchaseContracts = new ArrayList<>();
