@@ -151,6 +151,41 @@ public class SmsReminderService {
         customerRepository.save(customer);
     }
 
+    /**
+     * Za dato pravilo, obeležava sve neplaćene rate starije od zadatog broja
+     * dana kao "već obaveštene" (bez stvarnog slanja) - koristi se pre prve
+     * aktivacije pravila za kašnjenje, da se izbegne slanje SMS-a na stare
+     * dugove koji su ranije ručno obrađeni (npr. iz stare aplikacije).
+     * Nakon ovoga, redovna provera (processRules) ih neće ponovo obraditi
+     * jer već imaju zapis u istoriji za ovo pravilo.
+     */
+    @Transactional
+    public int markOldInstallmentsAsNotified(Long ruleId, int olderThanDays) {
+        SmsReminderRule rule = ruleRepository.findById(ruleId)
+                .orElseThrow(() -> new BadRequestException("Pravilo nije pronađeno: " + ruleId));
+        LocalDate cutoffDate = LocalDate.now().minusDays(olderThanDays);
+        List<Installment> oldInstallments = installmentRepository.findUnpaidWithMaturityDateBefore(cutoffDate);
+
+        int marked = 0;
+        for (Installment installment : oldInstallments) {
+            if (logRepository.existsByInstallmentIdAndRuleId(installment.getId(), rule.getId())) {
+                continue;
+            }
+            Customer customer = installment.getPurchaseContract().getCustomer();
+            logRepository.save(SmsReminderLog.builder()
+                    .installment(installment)
+                    .rule(rule)
+                    .phoneNumber(normalizePhoneNumber(customer.getPhoneNumber()))
+                    .message("(SMS nije poslat preko aplikacije)")
+                    .status(SmsReminderStatus.SKIPPED)
+                    .errorMessage("Starije od " + olderThanDays + " dana - ručno označeno kao već obavešteno")
+                    .sentAt(LocalDateTime.now())
+                    .build());
+            marked++;
+        }
+        return marked;
+    }
+
     // --- Slanje ---
 
     @Scheduled(cron = "0 0 11 * * *")

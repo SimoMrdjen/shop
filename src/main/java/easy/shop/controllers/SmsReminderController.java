@@ -90,4 +90,10 @@ public class SmsReminderController {
     public void includeCustomer(@PathVariable Long customerId) {
         smsReminderService.includeCustomer(customerId);
     }
+
+    @PostMapping("/{id}/mark-old-as-notified")
+    public Map<String, Integer> markOldAsNotified(@PathVariable Long id, @RequestParam(defaultValue = "45") int olderThanDays) {
+        int marked = smsReminderService.markOldInstallmentsAsNotified(id, olderThanDays);
+        return Map.of("markedCount", marked);
+    }
 }

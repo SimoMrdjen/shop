@@ -26,4 +26,7 @@ public interface InstallmentRepository extends JpaRepository<Installment, Long> 
 
     @Query("SELECT i FROM Installment i WHERE i.maturityDate <= :cutoffDate AND i.status IN ('PENDING', 'PARTIAL')")
     List<Installment> findUnpaidWithMaturityDateOnOrBefore(LocalDate cutoffDate);
+
+    @Query("SELECT i FROM Installment i WHERE i.maturityDate < :cutoffDate AND i.status IN ('PENDING', 'PARTIAL')")
+    List<Installment> findUnpaidWithMaturityDateBefore(LocalDate cutoffDate);
 }
