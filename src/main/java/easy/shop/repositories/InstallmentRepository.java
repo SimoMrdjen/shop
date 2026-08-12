@@ -20,4 +20,7 @@ public interface InstallmentRepository extends JpaRepository<Installment, Long> 
 
     @Query("SELECT i FROM Installment i JOIN i.purchaseContract c WHERE c.customer.id = :customerId AND i.status IN ('PENDING', 'PARTIAL') ORDER BY i.maturityDate ASC")
     List<Installment> findUnpaidByCustomer(Long customerId);
+
+    @Query("SELECT i FROM Installment i WHERE i.maturityDate = :date AND i.status IN ('PENDING', 'PARTIAL')")
+    List<Installment> findUnpaidByMaturityDate(LocalDate date);
 }
