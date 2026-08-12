@@ -153,7 +153,7 @@ public class SmsReminderService {
 
     // --- Slanje ---
 
-    @Scheduled(cron = "0 0 9 * * *")
+    @Scheduled(cron = "0 0 11 * * *")
     public void dispatchDueReminders() {
         processRules(LocalDate.now());
     }
@@ -166,8 +166,18 @@ public class SmsReminderService {
         }
         List<SmsReminderRule> activeRules = ruleRepository.findByActiveTrue();
         for (SmsReminderRule rule : activeRules) {
-            LocalDate targetMaturityDate = today.minusDays(rule.getDaysOffset());
-            List<Installment> due = installmentRepository.findUnpaidByMaturityDate(targetMaturityDate);
+            List<Installment> due;
+            if (rule.getDaysOffset() == 0) {
+                // "Na dan dospeća" - tačan datum, ne svaka neplaćena rata do danas.
+                due = installmentRepository.findUnpaidByMaturityDate(today);
+            } else {
+                // "N dana posle dospeća" - hvata i starije zaostale rate koje nikad
+                // nisu dobile OVU poruku (npr. ako je app bila ugašena tog dana, ili
+                // je pravilo tek sad dodato/aktivirano) - existsByInstallmentIdAndRuleId
+                // ispod i dalje sprečava duplo slanje iste rate za isto pravilo.
+                LocalDate cutoffDate = today.minusDays(rule.getDaysOffset());
+                due = installmentRepository.findUnpaidWithMaturityDateOnOrBefore(cutoffDate);
+            }
             for (Installment installment : due) {
                 sendReminderIfNotAlreadySent(installment, rule);
             }
