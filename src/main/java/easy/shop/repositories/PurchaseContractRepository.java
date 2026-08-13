@@ -16,4 +16,7 @@ public interface PurchaseContractRepository extends JpaRepository<PurchaseContra
 
     @Query("SELECT c FROM PurchaseContract c LEFT JOIN FETCH c.installments WHERE c.id = :id")
     Optional<PurchaseContract> findByIdWithInstallments(Long id);
+
+    @Query("SELECT c FROM PurchaseContract c JOIN FETCH c.customer LEFT JOIN FETCH c.installments WHERE c.sentToLitigation = true ORDER BY c.litigationDate DESC")
+    List<PurchaseContract> findAllInLitigation();
 }

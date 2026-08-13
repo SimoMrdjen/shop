@@ -4,6 +4,7 @@ import easy.shop.dtos.ContractRequest;
 import easy.shop.dtos.ContractResponse;
 import easy.shop.dtos.DailyPaymentReportResponse;
 import easy.shop.dtos.InstallmentResponse;
+import easy.shop.dtos.LitigationRequest;
 import easy.shop.dtos.PayInstallmentRequest;
 import easy.shop.dtos.PaymentBreakdownEntryResponse;
 import easy.shop.dtos.PaymentBreakdownResponse;
@@ -236,6 +237,35 @@ public class ContractService {
                 .build();
     }
 
+    // --- Utuženje ---
+
+    @Transactional
+    public ContractResponse markSentToLitigation(Long contractId, LitigationRequest req) {
+        PurchaseContract contract = contractRepository.findByIdWithInstallments(contractId)
+                .orElseThrow(() -> new BadRequestException("Ugovor nije pronađen: " + contractId));
+        contract.setSentToLitigation(true);
+        contract.setLitigationDate(req.getDate());
+        contract.setLitigationNote(req.getNote());
+        return toResponse(contractRepository.save(contract), contract.getInstallments());
+    }
+
+    @Transactional
+    public ContractResponse unmarkLitigation(Long contractId) {
+        PurchaseContract contract = contractRepository.findByIdWithInstallments(contractId)
+                .orElseThrow(() -> new BadRequestException("Ugovor nije pronađen: " + contractId));
+        contract.setSentToLitigation(false);
+        contract.setLitigationDate(null);
+        contract.setLitigationNote(null);
+        return toResponse(contractRepository.save(contract), contract.getInstallments());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ContractResponse> getContractsInLitigation() {
+        return contractRepository.findAllInLitigation().stream()
+                .map(c -> toResponse(c, c.getInstallments()))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public PaymentBreakdownResponse getPaymentBreakdown(String groupId) {
         List<Payment> payments = paymentRepository.findByPaymentGroupId(groupId);
@@ -293,6 +323,9 @@ public class ContractService {
                 .contractDate(c.getContractDate())
                 .numberOfInstallments(c.getNumberOfInstallments())
                 .installmentAmount(installmentAmount)
+                .sentToLitigation(c.isSentToLitigation())
+                .litigationDate(c.getLitigationDate())
+                .litigationNote(c.getLitigationNote())
                 .installments(installments.stream()
                         .map(i -> toInstallmentResponse(i, lastGroupIdByInstallment.get(i.getId())))
                         .toList())

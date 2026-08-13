@@ -20,5 +20,8 @@ ContractResponse {
     private LocalDate contractDate;
     private Integer numberOfInstallments;
     private Double installmentAmount;
+    private boolean sentToLitigation;
+    private LocalDate litigationDate;
+    private String litigationNote;
     private List<InstallmentResponse> installments;
 }

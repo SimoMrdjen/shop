@@ -37,6 +37,16 @@ public class PurchaseContract extends Auditable {
     @Column(name = "number_of_installments")
     private Integer numberOfInstallments;
 
+    @Column(name = "sent_to_litigation", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    @Builder.Default
+    private boolean sentToLitigation = false;
+
+    @Column(name = "litigation_date")
+    private LocalDate litigationDate;
+
+    @Column(name = "litigation_note")
+    private String litigationNote;
+
     @JsonIgnore
     @OneToMany(mappedBy = "purchaseContract", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

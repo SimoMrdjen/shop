@@ -4,6 +4,7 @@ import easy.shop.dtos.ContractRequest;
 import easy.shop.dtos.ContractResponse;
 import easy.shop.dtos.DailyPaymentReportResponse;
 import easy.shop.dtos.InstallmentResponse;
+import easy.shop.dtos.LitigationRequest;
 import easy.shop.dtos.PayInstallmentRequest;
 import easy.shop.dtos.PaymentBreakdownResponse;
 import easy.shop.services.ContractService;
@@ -66,6 +67,23 @@ public class ContractController {
     @GetMapping("/api/installments/payment-groups/{groupId}")
     public PaymentBreakdownResponse paymentBreakdown(@PathVariable String groupId) {
         return contractService.getPaymentBreakdown(groupId);
+    }
+
+    // --- Utuženje (samo admin) ---
+
+    @PostMapping("/api/admin/contracts/{id}/litigation")
+    public ContractResponse markLitigation(@PathVariable Long id, @Valid @RequestBody LitigationRequest request) {
+        return contractService.markSentToLitigation(id, request);
+    }
+
+    @DeleteMapping("/api/admin/contracts/{id}/litigation")
+    public ContractResponse unmarkLitigation(@PathVariable Long id) {
+        return contractService.unmarkLitigation(id);
+    }
+
+    @GetMapping("/api/admin/contracts/litigation")
+    public List<ContractResponse> litigationContracts() {
+        return contractService.getContractsInLitigation();
     }
 
     // --- Izveštaji ---
