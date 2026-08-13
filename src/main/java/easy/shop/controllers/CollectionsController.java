@@ -1,6 +1,6 @@
 package easy.shop.controllers;
 
-import easy.shop.dtos.DebtorCallListEntryResponse;
+import easy.shop.dtos.DebtorCallGroupResponse;
 import easy.shop.dtos.StatisticsOverviewResponse;
 import easy.shop.services.CollectionsService;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +17,7 @@ public class CollectionsController {
     private final CollectionsService collectionsService;
 
     @GetMapping("/api/admin/debtors/call-list")
-    public List<DebtorCallListEntryResponse> callList(
+    public List<DebtorCallGroupResponse> callList(
             @RequestParam(defaultValue = "0") int fromDays,
             @RequestParam(defaultValue = "45") int toDays,
             @RequestParam(required = false) Double minAmount) {

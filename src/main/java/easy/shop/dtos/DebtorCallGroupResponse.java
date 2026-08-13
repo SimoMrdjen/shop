@@ -4,18 +4,15 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Builder
 @AllArgsConstructor
-public class DebtorCallListEntryResponse {
+public class DebtorCallGroupResponse {
     private Long customerId;
     private String customerFullName;
     private String phoneNumber;
-    private Long contractId;
-    private Integer installmentOrdinal;
-    private LocalDate maturityDate;
-    private long daysOverdue;
-    private double remainingAmount;
+    private double totalRemainingAmount;
+    private List<DebtorCallInstallmentResponse> installments;
 }

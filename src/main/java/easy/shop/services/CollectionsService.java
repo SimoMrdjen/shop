@@ -1,7 +1,8 @@
 package easy.shop.services;
 
 import easy.shop.dtos.BucketStatResponse;
-import easy.shop.dtos.DebtorCallListEntryResponse;
+import easy.shop.dtos.DebtorCallGroupResponse;
+import easy.shop.dtos.DebtorCallInstallmentResponse;
 import easy.shop.dtos.PeriodStatResponse;
 import easy.shop.dtos.StatisticsOverviewResponse;
 import easy.shop.entities.Customer;
@@ -16,7 +17,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,32 +35,52 @@ public class CollectionsService {
     // --- Pregled za pozivanje dužnika ---
 
     @Transactional(readOnly = true)
-    public List<DebtorCallListEntryResponse> getDebtorCallList(int fromDays, int toDays, Double minAmount) {
+    public List<DebtorCallGroupResponse> getDebtorCallList(int fromDays, int toDays, Double minAmount) {
         LocalDate today = LocalDate.now();
         LocalDate fromDate = today.minusDays(toDays);
         LocalDate toDate = today.minusDays(fromDays);
 
-        return installmentRepository.findForDebtorCallList(fromDate, toDate).stream()
-                .map(i -> toCallListEntry(i, today))
-                .filter(entry -> minAmount == null || entry.getRemainingAmount() >= minAmount)
+        List<Installment> installments = installmentRepository.findForDebtorCallList(fromDate, toDate).stream()
+                .filter(i -> minAmount == null || remainingAmount(i) >= minAmount)
+                .toList();
+
+        // LinkedHashMap + grupisanje po kupcu - da se isti kupac (sa vise
+        // zaostalih rata) pojavi samo jednom na listi za pozivanje, umesto
+        // da se zove vise puta za svaku ratu posebno.
+        Map<Long, List<Installment>> byCustomer = new LinkedHashMap<>();
+        for (Installment i : installments) {
+            byCustomer.computeIfAbsent(i.getPurchaseContract().getCustomer().getId(), k -> new ArrayList<>()).add(i);
+        }
+
+        return byCustomer.values().stream()
+                .map(group -> toCallGroup(group, today))
+                .sorted(Comparator.comparing(DebtorCallGroupResponse::getCustomerFullName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
 
-    private DebtorCallListEntryResponse toCallListEntry(Installment installment, LocalDate today) {
-        PurchaseContract contract = installment.getPurchaseContract();
-        Customer customer = contract.getCustomer();
-        double remaining = remainingAmount(installment);
-        long daysOverdue = ChronoUnit.DAYS.between(installment.getMaturityDate(), today);
+    private DebtorCallGroupResponse toCallGroup(List<Installment> installments, LocalDate today) {
+        Customer customer = installments.get(0).getPurchaseContract().getCustomer();
 
-        return DebtorCallListEntryResponse.builder()
+        List<DebtorCallInstallmentResponse> installmentEntries = installments.stream()
+                .sorted(Comparator.comparing(Installment::getMaturityDate))
+                .map(i -> {
+                    long daysOverdue = ChronoUnit.DAYS.between(i.getMaturityDate(), today);
+                    return DebtorCallInstallmentResponse.builder()
+                            .contractId(i.getPurchaseContract().getId())
+                            .installmentOrdinal(i.getInstallmentOrdinal())
+                            .maturityDate(i.getMaturityDate())
+                            .daysOverdue(Math.max(0, daysOverdue))
+                            .remainingAmount(remainingAmount(i))
+                            .build();
+                })
+                .toList();
+
+        return DebtorCallGroupResponse.builder()
                 .customerId(customer.getId())
                 .customerFullName((nullToEmpty(customer.getFirstName()) + " " + nullToEmpty(customer.getLastName())).trim())
                 .phoneNumber(customer.getPhoneNumber())
-                .contractId(contract.getId())
-                .installmentOrdinal(installment.getInstallmentOrdinal())
-                .maturityDate(installment.getMaturityDate())
-                .daysOverdue(Math.max(0, daysOverdue))
-                .remainingAmount(remaining)
+                .totalRemainingAmount(round(sumRemaining(installments)))
+                .installments(installmentEntries)
                 .build();
     }
 
