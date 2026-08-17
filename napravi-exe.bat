@@ -23,6 +23,7 @@ jpackage ^
   --main-jar shop.jar ^
   --name EasyShop ^
   --dest dist-app ^
+  --icon branding\EasyShop.ico ^
   --java-options "-Dfile.encoding=UTF-8"
 
 if errorlevel 1 (
